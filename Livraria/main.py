@@ -161,9 +161,24 @@ def importar(file_path, cursor, conexao):
         conexao.commit()
     print(" >> Importacao concluida << ")
 
-def backup(file_path, cursor, conexao):
-    print()
+def backup(file_path, conexao):
+    if not file_path:
+        file_path = 'backup_livraria.db'
 
+    try:
+        # Abre uma nova conexao para o arquivo de backup
+        backup_conexao = sqlite3.connect(file_path)
+        with backup_conexao:
+            # Realiza o backup do banco de dados atual para o arquivo de backup
+            conexao.backup(backup_conexao, pages=1)
+            print(f" >> Backup realizado com sucesso para {file_path}")
+    except sqlite3.Error as e:
+        print(f"Erro ao realizar o backup: {e}")
+    finally:
+        if backup_conexao:
+            backup_conexao.close()
+    
+    print(' >>  backup feito!!! << ')
 
 def main():
     nome_db = input('Digite o nome do banco de dados existente (ex: livraria.db): ')
@@ -218,7 +233,7 @@ def main():
         elif opc == 7:
             importar(file_path, cursor, conexao)
         elif opc == 8:
-            backup(file_path, cursor, conexao)
+            backup(file_path, conexao)
         elif opc == 0:
             print("Encerrando o programa... Obrigado pela preferência!")
             break
