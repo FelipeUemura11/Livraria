@@ -12,6 +12,16 @@ def procurar_banco_de_dados(nome_db):
     print(f"Banco de dados {nome_db} não encontrado. Será criado um novo arquivo.")
     return None
 
+def procurar_arquivo(file_name):
+    for root, dirs, files in os.walk("."):
+        for file in files:
+            if file == file_name:
+                file_path = os.path.join(root, file)
+                print(f"Arquivo CSV encontrado em: {file_path}")
+                return file_path
+    print(f"Arquivo {file_name} não encontrado. Será criado um novo arquivo.")
+    return None
+
 def conectar_banco(file_path):
     if file_path:
         return sqlite3.connect(file_path)  
@@ -129,6 +139,32 @@ def buscar_livro(cursor):
         print("Erro ao buscar livro, por favor tente novamente.")
         print("---"*30)
 
+def exportar(file_path, cursor):
+    cursor.execute("SELECT * FROM livros")
+    livros = cursor.fetchall()
+
+    with open(file_path, 'w', newline='') as arquivo_csv:
+        escritor = csv.writer(arquivo_csv)
+        escritor.writerow(["ID", "Título", "Autor", "Ano", "Preço"])
+        for livro in livros:
+            escritor.writerow(livro)
+
+    print(" >> Exportacao concluida << ")
+
+def importar(file_path, cursor, conexao):
+    with open(file_path, 'r') as arquivo:
+        leitor = csv.reader(arquivo)
+        next(leitor)  # Pula o cabecalho
+        for linha in leitor:
+            cursor.execute('INSERT INTO livros (titulo, autor, ano_publicado, preco) VALUES (?, ?, ?, ?)', 
+                           (linha[1], linha[2], int(linha[3]), float(linha[4])))
+        conexao.commit()
+    print(" >> Importacao concluida << ")
+
+def backup(file_path, cursor, conexao):
+    print()
+
+
 def main():
     nome_db = input('Digite o nome do banco de dados existente (ex: livraria.db): ')
     db_path = procurar_banco_de_dados(nome_db)
@@ -177,6 +213,12 @@ def main():
             remover_livro(cursor, conexao)
         elif opc == 5:
             buscar_livro(cursor)
+        elif opc == 6:
+            exportar(file_path, cursor)
+        elif opc == 7:
+            importar(file_path, cursor, conexao)
+        elif opc == 8:
+            backup(file_path, cursor, conexao)
         elif opc == 0:
             print("Encerrando o programa... Obrigado pela preferência!")
             break
@@ -184,16 +226,6 @@ def main():
             print('Opção inválida, tente novamente...')
 
     conexao.close()
-
-def procurar_arquivo(file_name):
-    for root, dirs, files in os.walk("."):
-        for file in files:
-            if file == file_name:
-                file_path = os.path.join(root, file)
-                print(f"Arquivo CSV encontrado em: {file_path}")
-                return file_path
-    print(f"Arquivo {file_name} não encontrado. Será criado um novo arquivo.")
-    return None
 
 if __name__ == "__main__":
     main()
