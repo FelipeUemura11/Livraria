@@ -55,6 +55,8 @@ def adicionar_livro(file_path, cursor, conexao):
     conexao.commit()
     print(' >> Livro adicionado!!!')
 
+    backup()
+
 def atualizar_livro(cursor, conexao):
     try:
         livro_id = int(input("Digite o ID do livro que deseja atualizar: "))
@@ -83,6 +85,8 @@ def atualizar_livro(cursor, conexao):
 
             conexao.commit()
             print(f" >> Livro ID {livro_id} atualizado com sucesso!")
+
+            backup()
         else:
             print(f"Nenhum livro encontrado com o ID {livro_id}.")
     except ValueError:
@@ -105,6 +109,8 @@ def remover_livro(cursor, conexao):
                 cursor.execute("DELETE FROM livros WHERE id = ?", (livro_id,))
                 conexao.commit()
                 print(f" >> Livro ID {livro_id} removido com sucesso!")
+
+                backup()
             else:
                 print(" >> Operação de remoção cancelada.")
         else:
@@ -146,7 +152,7 @@ def exportar(file_path, conexao):
     query = 'SELECT * FROM livros'
     tabela_livros = pd.read_sql_query(query, conexao)
 
-    diretorio_exportado = Path(f'./exports/{file_path}')
+    diretorio_exportado = Path(file_path)
 
     if not diretorio_exportado.parent.exists():
         diretorio_exportado.parent.mkdir(parents=True, exist_ok=True)
@@ -157,31 +163,43 @@ def exportar(file_path, conexao):
     return str(diretorio_exportado)
 
 
-def importar(file_path):
-    diretorio_banco = Path('./data/livraria.db')
+def importar(file_path, db_path):
 
-    conexao = sqlite3.connect(diretorio_banco)
+    conexao = conectar_banco(db_path)
+    cursor = conexao.cursor()
 
-    diretorio_imports = Path(f'./imports/{file_path}')
+    if not os.path.exists(file_path):
+        print(f"O arquivo {file_path} não foi encontrado.")
+        return
 
-    try:
-        df = pd.read_csv(diretorio_imports)
+    with open(file_path, mode="r", encoding="utf-8") as arquivo_csv:
+        reader = csv.reader(arquivo_csv)
+        next(reader)  # Pular o cabecalho
 
-        df.to_sql('livros', conexao, if_exists='append', index=False)
+        for row in reader:
+            if len(row) != 5:
+                print(f"Linha inválida: {row}. Deve conter 5 colunas.")
+                continue
 
-        print(f'Dados importados de {file_path} com sucesso!')
-    except Exception as e:
-        print(f'Erro ao importar dados: {e}')
-    finally:
-        conexao.close()
+            titulo = row[1]
+            autor = row[2]
+            ano_publicado = int(row[3]) if row[3].isdigit() else None
+            preco = float(row[4]) if row[4].replace('.', '', 1).isdigit() else None
 
+            cursor.execute('''
+                INSERT INTO livros (titulo, autor, ano_publicado, preco) 
+                VALUES (?, ?, ?, ?)
+            ''', (titulo, autor, ano_publicado, preco))
+
+    conexao.commit()
+    conexao.close()
+    print(' >> Dados importados com sucesso!')  
+  
 def backup():
     diretorio_banco = Path('./data/livraria.db')
 
-    # Conectando ao banco original
     conexao = sqlite3.connect(diretorio_banco)
 
-    # Pegando dados para a criação do backup
     data_hora = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     diretorio_backup = Path(f'./backups/backup_livraria_{data_hora}.db')
 
@@ -189,9 +207,24 @@ def backup():
         diretorio_backup.parent.mkdir(parents=True, exist_ok=True)
 
     conexao.backup(sqlite3.connect(diretorio_backup))
-
     print(f'Backup criado em: {diretorio_backup}')
+
+    limpar_backups_antigos()
+
     return str(diretorio_backup)
+
+def limpar_backups_antigos():
+
+    backups_dir = Path('./backups')
+    arquivos_backup = list(backups_dir.glob('backup_livraria_*.db'))
+    arquivos_backup.sort(key=os.path.getmtime, reverse=True)
+
+    for arquivo in arquivos_backup[5:]:
+        try:
+            arquivo.unlink()
+            print(f'Backup antigo removido: {arquivo}')
+        except Exception as e:
+            print(f'Erro ao remover backup: {e}')
 
 def main():
     nome_db = input('Digite o nome do banco de dados existente (ex: livraria.db): ')
@@ -200,7 +233,7 @@ def main():
     conexao = conectar_banco(db_path)
     cursor = conexao.cursor()
 
-    cursor.execute('''
+    cursor.execute(''' 
         CREATE TABLE IF NOT EXISTS livros(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             titulo TEXT NOT NULL,
@@ -244,7 +277,7 @@ def main():
         elif opc == 6:
             exportar(file_path, conexao)
         elif opc == 7:
-            importar(file_path)
+            importar(file_path, db_path)
         elif opc == 8:
             backup()
         elif opc == 0:
