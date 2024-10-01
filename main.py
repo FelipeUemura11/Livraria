@@ -134,19 +134,19 @@ def exibir_livros(cursor):
         print("---"*30)
         
 def buscar_livro(cursor):
-    titulo = input("Digite o título do livro que deseja buscar: ").strip()
+    autor = input("Digite o nome do autor que deseja buscar: ").strip()
     
-    cursor.execute("SELECT * FROM livros WHERE titulo LIKE ?", (f"%{titulo}%",))
+    cursor.execute("SELECT * FROM livros WHERE autor LIKE ?", (f"%{autor}%",))
     livros_encontrados = cursor.fetchall()
     
     if livros_encontrados:
-        print(">>>Livros encontrados<<<")
+        print(">>> Livros encontrados <<<")
         for livro in livros_encontrados:
             print(f"ID: {livro[0]}, Título: {livro[1]}, Autor: {livro[2]}, Ano: {livro[3]}, Preço: R${livro[4]:.2f}")
-            print("---"*30)
+            print("---" * 30)
     else:
-        print("Erro ao buscar livro, por favor tente novamente.")
-        print("---"*30)
+        print(f"Nenhum livro encontrado do autor '{autor}'.")
+        print("---" * 30)
 
 def exportar(file_path, conexao):
     query = 'SELECT * FROM livros'
